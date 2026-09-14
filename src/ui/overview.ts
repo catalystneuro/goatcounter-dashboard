@@ -305,25 +305,26 @@ export class Overview {
           const shown = nonzero.slice(0, 20);
           this.panels['locations']!.update({ items: statsToItems(shown), total, more: nonzero.length > shown.length });
           this.map.update({ items: statsToItems(nonzero.filter((s) => s.id && !s.name.startsWith('('))), total });
-          // US states: one more request, only when the US appears at all.
-          const us = nonzero.find((s) => s.id === 'US');
-          if (!us) {
-            this.usMap.update({ items: [], total });
-            return;
-          }
-          jobs.push(
-            guard(
-              client.statDetail('locations', 'US', range, { limit: 100 }, signal),
-              (res) => this.usMap.update({ items: statsToItems(res.stats.filter((s) => s.count > 0)), total: us.count }),
-              (e) => this.usMap.setError(msg(e)),
-            ),
-          );
         },
         (e) => {
           this.panels['locations']!.setError(msg(e));
           this.map.setError(msg(e));
-          this.usMap.setError(msg(e));
         },
+      ),
+    );
+    // US states: one more request, made only when the US appears in the locations.
+    const usP = locsP.then((all) => {
+      const us = all.find((s) => s.id === 'US' && s.count > 0);
+      return us ? client.statDetail('locations', 'US', range, { limit: 100 }, signal).then((res) => ({ res, us })) : null;
+    });
+    jobs.push(
+      guard(
+        Promise.all([usP, siteTotal]),
+        ([r, total]) => {
+          if (!r) this.usMap.update({ items: [], total });
+          else this.usMap.update({ items: statsToItems(r.res.stats.filter((s) => s.count > 0)), total: r.us.count });
+        },
+        (e) => this.usMap.setError(msg(e)),
       ),
     );
 
