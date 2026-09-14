@@ -1,0 +1,165 @@
+/* Design tokens. Light values live on :root; dark values are redefined under the
+   OS media query (guarded so an explicit light choice wins) and again under the
+   explicit dark toggle. Theme presets override the same slots via [data-preset]. */
+
+:root {
+  color-scheme: light;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* neutral preset, light */
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f3f3f0;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.18);
+
+  /* UI accent (links, primary buttons, selected chips) */
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(42, 120, 214, 0.1);
+  --focus: #2a78d6;
+
+  /* data series: one hue for a single series; slot 2 only for the comparison period */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-1-wash: rgba(42, 120, 214, 0.1);
+  --bar-track: #efeeea;
+
+  --delta-up: #006300;
+  --delta-down: #a3252a;
+  --danger: #d03b3b;
+  --danger-wash: rgba(208, 59, 59, 0.08);
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+}
+
+:root[data-preset="pine"] {
+  --page: #f7f8f6;
+  --surface: #ffffff;
+  --surface-2: #eef1ee;
+  --ink: #16211d;
+  --ink-2: #4c5852;
+  --muted: #7d8882;
+  --grid: #e3e7e3;
+  --axis: #c2cac5;
+  --border: rgba(22, 33, 29, 0.1);
+  --border-strong: rgba(22, 33, 29, 0.2);
+  --accent: #14563f;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(20, 86, 63, 0.09);
+  --focus: #14563f;
+  --series-1: #0e9a62;
+  --series-2: #9a6a0a;
+  --series-1-wash: rgba(14, 154, 98, 0.1);
+  --bar-track: #eef1ee;
+  --delta-up: #14563f;
+  --delta-down: #a3252a;
+}
+
+/* Dark: OS setting, unless the viewer chose light explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232322;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.2);
+    --accent: #3987e5;
+    --accent-ink: #ffffff;
+    --accent-wash: rgba(57, 135, 229, 0.16);
+    --focus: #6da7ec;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-1-wash: rgba(57, 135, 229, 0.12);
+    --bar-track: #262625;
+    --delta-up: #0ca30c;
+    --delta-down: #e66767;
+    --danger: #e66767;
+    --danger-wash: rgba(230, 103, 103, 0.12);
+    --shadow: none;
+  }
+  :root:not([data-theme="light"])[data-preset="pine"] {
+    --page: #101714;
+    --surface: #1b2621;
+    --surface-2: #233129;
+    --ink: #f2f4f1;
+    --ink-2: #b8c2bb;
+    --muted: #8a948d;
+    --grid: #2a3630;
+    --axis: #3a4740;
+    --border: rgba(242, 244, 241, 0.1);
+    --border-strong: rgba(242, 244, 241, 0.2);
+    --accent: #3fa27a;
+    --accent-ink: #0c1a14;
+    --accent-wash: rgba(63, 162, 122, 0.16);
+    --focus: #5fc39a;
+    --series-1: #2fa877;
+    --series-2: #b58324;
+    --series-1-wash: rgba(47, 168, 119, 0.12);
+    --bar-track: #263129;
+    --delta-up: #3fa27a;
+    --delta-down: #e66767;
+  }
+}
+
+/* Dark: explicit toggle, wins in both directions. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232322;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --accent: #3987e5;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(57, 135, 229, 0.16);
+  --focus: #6da7ec;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-1-wash: rgba(57, 135, 229, 0.12);
+  --bar-track: #262625;
+  --delta-up: #0ca30c;
+  --delta-down: #e66767;
+  --danger: #e66767;
+  --danger-wash: rgba(230, 103, 103, 0.12);
+  --shadow: none;
+}
+:root[data-theme="dark"][data-preset="pine"] {
+  --page: #101714;
+  --surface: #1b2621;
+  --surface-2: #233129;
+  --ink: #f2f4f1;
+  --ink-2: #b8c2bb;
+  --muted: #8a948d;
+  --grid: #2a3630;
+  --axis: #3a4740;
+  --border: rgba(242, 244, 241, 0.1);
+  --border-strong: rgba(242, 244, 241, 0.2);
+  --accent: #3fa27a;
+  --accent-ink: #0c1a14;
+  --accent-wash: rgba(63, 162, 122, 0.16);
+  --focus: #5fc39a;
+  --series-1: #2fa877;
+  --series-2: #b58324;
+  --series-1-wash: rgba(47, 168, 119, 0.12);
+  --bar-track: #263129;
+  --delta-up: #3fa27a;
+  --delta-down: #e66767;
+}

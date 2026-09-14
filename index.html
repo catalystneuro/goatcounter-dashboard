@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A static dashboard for GoatCounter analytics. Your site and token stay in your browser." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>GoatCounter dashboard</title>
+    <script>
+      // Apply the stored color scheme and preset before first paint to avoid a flash.
+      try {
+        var s = JSON.parse(localStorage.getItem('gcd.scheme') || '"system"');
+        if (s === 'light' || s === 'dark') document.documentElement.dataset.theme = s;
+        var t = new URLSearchParams(location.search).get('theme') || JSON.parse(localStorage.getItem('gcd.theme') || '""');
+        if (t === 'pine') document.documentElement.dataset.preset = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app" class="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
