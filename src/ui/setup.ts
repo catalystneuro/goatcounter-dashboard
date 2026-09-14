@@ -148,7 +148,7 @@ export function renderSetup(root: HTMLElement, opts: SetupOptions): void {
     h(
       'p',
       { class: 'privacy' },
-      'The token is stored in this browser’s localStorage and sent only to your GoatCounter site. It is never part of the page URL, so links you share carry the site and date range but not the token.',
+      'The token is stored in this browser’s localStorage and sent only to your GoatCounter site. Links copied from the dashboard carry the site and date range but not the token.',
     ),
   );
   root.appendChild(form);
