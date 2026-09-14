@@ -61,6 +61,7 @@ export class Overview {
       h(
         'div',
         { class: 'actions' },
+        h('button', { class: 'btn small ghost', type: 'button', title: 'Ask GoatCounter again instead of using cached data', onClick: () => this.refresh() }, 'Refresh'),
         h('button', { class: 'btn small ghost', type: 'button', onClick: () => this.copyLink() }, 'Copy link'),
         this.schemeBtn,
         h('button', { class: 'btn small', type: 'button', onClick: () => opts.onOpenSettings() }, 'Settings'),
@@ -157,6 +158,11 @@ export class Overview {
     this.controller?.abort();
   }
 
+  private refresh(): void {
+    this.opts.client.clearCache();
+    this.load();
+  }
+
   private cycleScheme(): void {
     const next: ColorScheme = nextScheme(storage.getScheme());
     applyScheme(next);
@@ -223,9 +229,10 @@ export class Overview {
           if (signal.aborted || (e as Error).name === 'AbortError') return;
           onErr(e);
           if (e instanceof ApiError && e.isAuth) this.showError(e.message, true);
+          else if (e instanceof ApiError && e.isRateLimit && this.banner.hidden) this.showError(e.message, false);
         },
       );
-    const msg = (e: unknown) => (e instanceof Error ? e.message : 'Request failed.');
+    const msg = (e: unknown) => (e instanceof ApiError && e.isRateLimit ? 'Not loaded: rate limited.' : e instanceof Error ? e.message : 'Request failed.');
 
     // Totals and the daily chart, with the previous period when comparing.
     const totalP = client.total(range, {}, signal);

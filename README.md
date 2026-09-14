@@ -20,7 +20,7 @@ In GoatCounter go to Settings, then API, and add a new token with only the "Read
 
 Counts are unique visitors per period, which is how GoatCounter counts. Visitor totals and the chart respect the timezone set in your GoatCounter account. Referrer, country, browser, system, and screen size breakdowns are stored by GoatCounter per UTC day, so they can differ slightly from the visitor totals near day boundaries.
 
-GoatCounter allows four API requests per second per token, and the browser's CORS preflight counts as one of them. The app spaces its requests to stay under that limit, so a full page load takes a few seconds.
+GoatCounter allows four API requests per second per token, and the browser's CORS preflight counts as one of them, so the app spaces its requests and a full page load takes a few seconds. There is also a larger per-token budget (500 requests per window was observed). A page load costs about ten requests plus their preflights, so the app caches responses in the browser: five minutes for ranges that include today, twelve hours for ranges that have ended. The Refresh button in the header bypasses the cache.
 
 ## Theming
 

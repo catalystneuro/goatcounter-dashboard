@@ -1,6 +1,7 @@
 // Typed client for the GoatCounter REST API (api/v0). Browser-only, no backend.
 // Reference: https://<site>.goatcounter.com/api.json (OpenAPI 2.0).
 
+import { cache, MINUTE } from './cache';
 import { addDays, apiRange, todayIn, type DateRange } from './dates';
 import { createLimiter, sleep, type Limiter } from './ratelimit';
 import { apiBase } from './state';
@@ -66,6 +67,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    /** Seconds until the rate limit resets, when the server said. */
+    public readonly retryAfter: number | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -73,7 +76,15 @@ export class ApiError extends Error {
   get isAuth(): boolean {
     return this.status === 401 || this.status === 403;
   }
+  /** 429, or a network failure that is most likely a rate-limited preflight. */
+  get isRateLimit(): boolean {
+    return this.status === 429 || this.status === 0;
+  }
 }
+
+export const RATE_LIMIT_MESSAGE =
+  'GoatCounter is not accepting requests for this token right now. Its API allows 4 requests per second and a limited number per hour, and the browser cannot tell which limit was hit. Wait a few minutes and retry.';
+export const OFFLINE_MESSAGE = 'You appear to be offline.';
 
 export type QueryValue = string | number | boolean | undefined | null | (string | number)[];
 
@@ -143,9 +154,17 @@ export class GoatCounterClient {
     return apiRange(endsToday ? { start: r.start, end: addDays(r.end, 1) } : r, this.timezone);
   }
 
-  async get<T>(path: string, params: Record<string, QueryValue> = {}, signal?: AbortSignal): Promise<T> {
+  /**
+   * GET with caching, pacing, and retries. `ttl` is how long a successful response
+   * may be reused from the cache; 0 disables caching for this call.
+   */
+  async get<T>(path: string, params: Record<string, QueryValue> = {}, signal?: AbortSignal, ttl = 5 * MINUTE): Promise<T> {
     const url = this.base + path + buildQuery(params);
-    const maxAttempts = 5;
+    if (ttl > 0) {
+      const hit = cache.get<T>(url);
+      if (hit !== undefined) return hit;
+    }
+    const maxAttempts = 3;
     for (let attempt = 1; ; attempt++) {
       await this.limiter.acquire(this.slots, signal);
       let res: Response;
@@ -156,20 +175,39 @@ export class GoatCounterClient {
         });
       } catch (e) {
         if ((e as Error).name === 'AbortError') throw e;
-        // A rate-limited preflight surfaces as a network error; back off and retry.
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new ApiError(OFFLINE_MESSAGE, 0);
+        // A rate-limited CORS preflight surfaces as a network error. Retry briefly
+        // for the per-second limit; give up quickly if the hourly budget is gone.
         if (attempt < maxAttempts) {
-          await sleep(1000 * attempt, signal);
+          await sleep(1500 * attempt, signal);
           continue;
         }
-        throw new ApiError('Could not reach GoatCounter. Check the site name and your connection.', 0);
+        throw new ApiError(RATE_LIMIT_MESSAGE, 0);
       }
-      if (res.status === 429 && attempt < maxAttempts) {
-        const retryAfter = Number(res.headers.get('retry-after') ?? '1');
-        await sleep(Math.max(500, (Number.isFinite(retryAfter) ? retryAfter : 1) * 1000), signal);
-        continue;
+      if (res.status === 429) {
+        const reset = Number(res.headers.get('x-rate-limit-reset') ?? res.headers.get('retry-after') ?? '1');
+        const seconds = Number.isFinite(reset) ? reset : 1;
+        if (seconds <= 5 && attempt < maxAttempts) {
+          await sleep(Math.max(500, seconds * 1000), signal);
+          continue;
+        }
+        const mins = Math.max(1, Math.ceil(seconds / 60));
+        throw new ApiError(`GoatCounter's request budget for this token is used up. It resets in about ${mins} minute${mins === 1 ? '' : 's'}.`, 429, seconds);
       }
-      return this.handle<T>(res);
+      const value = await this.handle<T>(res);
+      if (ttl > 0) cache.set(url, value, ttl);
+      return value;
     }
+  }
+
+  /** Forget cached responses for this site so the next load asks GoatCounter again. */
+  clearCache(): void {
+    cache.clear(this.base);
+  }
+
+  /** Data for a range that has already ended does not change, so it can be kept much longer. */
+  private ttlFor(r: DateRange): number {
+    return r.end >= todayIn(this.timezone) ? 5 * MINUTE : 12 * 60 * MINUTE;
   }
 
   private async handle<T>(res: Response): Promise<T> {
@@ -199,7 +237,7 @@ export class GoatCounterClient {
   }
 
   me(signal?: AbortSignal): Promise<MeResponse> {
-    return this.get<MeResponse>('me', {}, signal);
+    return this.get<MeResponse>('me', {}, signal, 0);
   }
 
   total(r: DateRange, opts: { includePaths?: string[] } = {}, signal?: AbortSignal): Promise<TotalResponse> {
@@ -212,6 +250,7 @@ export class GoatCounterClient {
         include_paths: includePaths,
       },
       signal,
+      this.ttlFor(r),
     );
   }
 
@@ -220,15 +259,16 @@ export class GoatCounterClient {
       'stats/hits',
       { ...this.rangeParams(r), limit: opts.limit ?? 20, group: 'day', exclude_paths: opts.excludePaths },
       signal,
+      this.ttlFor(r),
     );
   }
 
   pathRefs(r: DateRange, pathId: number, opts: { limit?: number; offset?: number } = {}, signal?: AbortSignal): Promise<RefsResponse> {
-    return this.get<RefsResponse>(`stats/hits/${pathId}`, { ...this.rangeParams(r), limit: opts.limit ?? 20, offset: opts.offset }, signal);
+    return this.get<RefsResponse>(`stats/hits/${pathId}`, { ...this.rangeParams(r), limit: opts.limit ?? 20, offset: opts.offset }, signal, this.ttlFor(r));
   }
 
   stats(page: StatsPage, r: DateRange, opts: { limit?: number; offset?: number } = {}, signal?: AbortSignal): Promise<StatsResponse> {
-    return this.get<StatsResponse>(`stats/${page}`, { ...this.dayBucketRangeParams(r), limit: opts.limit ?? 20, offset: opts.offset }, signal);
+    return this.get<StatsResponse>(`stats/${page}`, { ...this.dayBucketRangeParams(r), limit: opts.limit ?? 20, offset: opts.offset }, signal, this.ttlFor(r));
   }
 
   statDetail(page: StatsPage, id: string, r: DateRange, opts: { limit?: number; offset?: number } = {}, signal?: AbortSignal): Promise<StatsResponse> {
@@ -236,6 +276,7 @@ export class GoatCounterClient {
       `stats/${page}/${encodeURIComponent(id)}`,
       { ...this.dayBucketRangeParams(r), limit: opts.limit ?? 20, offset: opts.offset },
       signal,
+      this.ttlFor(r),
     );
   }
 
