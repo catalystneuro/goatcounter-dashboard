@@ -6,6 +6,7 @@ import { eachDay, hourIn, hourLabel, isHourly, previousPeriod, rangeLabel, short
 import { siteDisplayName, storage, type ColorScheme, type ViewState } from '../state';
 import { applyScheme, nextScheme, schemeLabel } from '../theme';
 import { BarList, statsToItems, type BarItem } from './barlist';
+import { Choropleth } from './choropleth';
 import { clear, h } from './dom';
 import { FilterRow } from './filters';
 import { KpiRow } from './kpi';
@@ -35,6 +36,7 @@ export class Overview {
   private readonly filters: FilterRow;
   private readonly kpis: KpiRow;
   private readonly chart: TimeSeriesChart;
+  private readonly map: Choropleth;
   private readonly panels: Record<string, BarList>;
   private readonly banner: HTMLElement;
   private readonly schemeBtn: HTMLButtonElement;
@@ -78,6 +80,7 @@ export class Overview {
     this.kpis.setVisible('goal', !!opts.state.goal);
 
     this.chart = new TimeSeriesChart('Visitors');
+    this.map = new Choropleth('Visitors by country');
 
     const drillStat = (page: StatsPage) => async (item: BarItem, signal: AbortSignal) => {
       const res = await this.opts.client.statDetail(page, item.id, this.state.range, { limit: 15 }, signal);
@@ -110,6 +113,7 @@ export class Overview {
       {},
       this.kpis.el,
       this.chart.el,
+      h('div', { class: 'grid-1' }, this.map.el),
       h(
         'div',
         { class: 'grid-2' },
@@ -276,10 +280,15 @@ export class Overview {
       guard(
         Promise.all([locsP, siteTotal]),
         ([all, total]) => {
-          const shown = all.filter((s) => s.count > 0).slice(0, 20);
-          this.panels['locations']!.update({ items: statsToItems(shown), total, more: all.length > shown.length });
+          const nonzero = all.filter((s) => s.count > 0);
+          const shown = nonzero.slice(0, 20);
+          this.panels['locations']!.update({ items: statsToItems(shown), total, more: nonzero.length > shown.length });
+          this.map.update({ items: statsToItems(nonzero.filter((s) => s.id && !s.name.startsWith('('))), total });
         },
-        (e) => this.panels['locations']!.setError(msg(e)),
+        (e) => {
+          this.panels['locations']!.setError(msg(e));
+          this.map.setError(msg(e));
+        },
       ),
     );
 
