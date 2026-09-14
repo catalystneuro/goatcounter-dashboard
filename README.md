@@ -8,7 +8,9 @@ Use it at **https://catalystneuro.github.io/goatcounter-dashboard/** with your o
 
 One date range scopes the whole page: today, the last 7, 30, or 90 days, the last year, or a custom range. Below the filter row are three headline numbers (visitors, visitors to a goal path of your choice, and countries reached), a daily visitors chart with a crosshair tooltip (hourly for one- or two-day ranges), and panels for top pages, referrers, campaigns, countries, browsers, systems, and screen sizes. Each panel has a table view. Clicking a page shows its referrers; clicking a country, browser, or system shows its regions or versions. Turning on "Compare to previous period" overlays the previous period on the chart and adds deltas to the headline numbers.
 
-The URL carries the site, date range, goal path, and theme, so a link you share opens the same view for anyone who has their own token for that site. The token itself is never part of the URL.
+The URL carries the site, date range, goal path, and theme, so a link you share opens the same view for anyone who has their own token for that site. The token itself is not part of the shareable URL.
+
+To set up a browser from a link, append the token as `#token=...` (or `?token=...`). The app stores it for that site and removes it from the address bar on load. Settings has a "Copy setup link with token" button that builds one. Anyone who opens such a link can read the site's statistics, so treat it like the token itself.
 
 ## Getting a token
 

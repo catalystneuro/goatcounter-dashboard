@@ -2,7 +2,7 @@
 // The token is validated with GET /me and stored only in localStorage.
 
 import { ApiError, GoatCounterClient } from '../api';
-import { DEFAULT_GOAL, normalizeSite, siteDisplayName, storage, type ThemeName } from '../state';
+import { DEFAULT_GOAL, normalizeSite, setupLink, siteDisplayName, storage, type ThemeName, type ViewState } from '../state';
 import { clear, h } from './dom';
 
 export interface SetupResult {
@@ -17,6 +17,8 @@ export interface SetupOptions {
   theme: ThemeName;
   /** True when editing an existing configuration. */
   editing: boolean;
+  /** Current view, used to build a setup link that opens the same range. */
+  viewState: ViewState;
   onDone: (r: SetupResult) => void;
   onCancel?: () => void;
   onForget?: (site: string) => void;
@@ -50,6 +52,7 @@ export function renderSetup(root: HTMLElement, opts: SetupOptions): void {
   const error = h('div', { class: 'error', role: 'alert' });
   error.hidden = true;
   const submit = h('button', { class: 'btn primary', type: 'submit' }, opts.editing ? 'Save' : 'Open dashboard');
+  const copyNote = h('span', { class: 'hint' });
 
   const form = h(
     'form',
@@ -117,6 +120,31 @@ export function renderSetup(root: HTMLElement, opts: SetupOptions): void {
         ? h('button', { class: 'btn ghost', type: 'button', onClick: () => opts.onForget?.(opts.site as string) }, 'Forget this site')
         : null,
     ),
+    opts.editing && opts.site && existingToken
+      ? h(
+          'div',
+          { class: 'form-actions' },
+          h(
+            'button',
+            {
+              class: 'btn ghost',
+              type: 'button',
+              onClick: async () => {
+                const site = opts.site as string;
+                const link = setupLink(`${location.origin}${location.pathname}`, { ...opts.viewState, site }, storage.getToken(site) ?? '');
+                try {
+                  await navigator.clipboard.writeText(link);
+                  copyNote.textContent = 'Copied. Anyone who opens that link can read these statistics, so share it with care.';
+                } catch {
+                  copyNote.textContent = link;
+                }
+              },
+            },
+            'Copy setup link with token',
+          ),
+          copyNote,
+        )
+      : null,
     h(
       'p',
       { class: 'privacy' },

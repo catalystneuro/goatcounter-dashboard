@@ -68,6 +68,26 @@ function isPresetKey(k: string): k is Exclude<PresetKey, 'custom'> {
   return k === 'today' || k === '7d' || k === '30d' || k === '90d' || k === 'year';
 }
 
+/**
+ * A token may be passed once in the URL (query or hash) to set up a browser from a
+ * link. Returns it and a cleaned URL with the token removed from both places.
+ */
+export function extractUrlToken(search: string, hash: string): { token: string | null; search: string; hash: string } {
+  const q = new URLSearchParams(search);
+  const hq = new URLSearchParams(hash.replace(/^#/, ''));
+  const token = (q.get('token') ?? hq.get('token') ?? '').trim() || null;
+  q.delete('token');
+  hq.delete('token');
+  const qs = q.toString();
+  const hs = hq.toString();
+  return { token, search: qs ? `?${qs}` : '', hash: hs ? `#${hs}` : '' };
+}
+
+/** A one-time setup link: the shareable URL plus the token in the fragment. */
+export function setupLink(base: string, s: ViewState, token: string): string {
+  return `${base}${searchFromState(s)}#token=${encodeURIComponent(token)}`;
+}
+
 /** Build the query string for a state. Presets serialize as range=; custom as start/end. */
 export function searchFromState(s: ViewState): string {
   const q = new URLSearchParams();

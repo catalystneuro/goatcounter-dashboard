@@ -1,7 +1,7 @@
 import './styles/app.css';
 import { GoatCounterClient } from './api';
 import { parseGoatCounterTimezone, presetRange, parseISODate, todayIn } from './dates';
-import { DEFAULT_GOAL, searchFromState, stateFromSearch, storage, type ViewState } from './state';
+import { DEFAULT_GOAL, extractUrlToken, searchFromState, stateFromSearch, storage, type ViewState } from './state';
 import { applyPreset, applyScheme } from './theme';
 import { clear, h } from './ui/dom';
 import { Overview } from './ui/overview';
@@ -37,7 +37,12 @@ function writeUrl(s: ViewState): void {
 
 function boot(): void {
   applyScheme(storage.getScheme());
+  // A token passed in the URL is stored for the site and removed from the address bar
+  // before anything else runs, so it never survives in history or a copied link.
+  const urlToken = extractUrlToken(location.search, location.hash);
+  if (urlToken.token) history.replaceState(null, '', `${location.pathname}${urlToken.search}${urlToken.hash}`);
   let state = stateFromSearch(location.search);
+  if (urlToken.token && state.site) storage.setToken(state.site, urlToken.token);
   if (!state.site) {
     const last = storage.lastSite();
     if (last) state = { ...state, site: last };
@@ -71,6 +76,7 @@ function showSetup(state: ViewState, editing: boolean): void {
     goal: state.goal,
     theme: state.theme,
     editing,
+    viewState: state,
     onDone: ({ site, goal, theme }) => {
       applyPreset(theme);
       const next: ViewState = { ...state, site, goal, theme };

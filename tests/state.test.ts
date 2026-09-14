@@ -36,3 +36,18 @@ describe('state', () => {
     expect(rev.preset).toBe('30d');
   });
 });
+
+import { extractUrlToken, setupLink } from '../src/state';
+
+describe('url token', () => {
+  it('extracts a token from the query or hash and strips it', () => {
+    expect(extractUrlToken('?site=x&token=abc&range=7d', '')).toEqual({ token: 'abc', search: '?site=x&range=7d', hash: '' });
+    expect(extractUrlToken('?site=x', '#token=abc')).toEqual({ token: 'abc', search: '?site=x', hash: '' });
+    expect(extractUrlToken('?site=x', '')).toEqual({ token: null, search: '?site=x', hash: '' });
+  });
+
+  it('builds a setup link with the token in the fragment', () => {
+    const s = stateFromSearch('?site=x&range=7d', today);
+    expect(setupLink('https://example.test/app/', s, 'a/b')).toBe('https://example.test/app/?site=x&range=7d#token=a%2Fb');
+  });
+});
