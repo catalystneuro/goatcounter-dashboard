@@ -1,18 +1,32 @@
-// World choropleth: visitors per country on a sequential one-hue ramp with a
-// scale legend, per-country hover tooltip, keyboard focus, and a table twin.
+// Choropleth: visitors per region on a sequential one-hue ramp with a scale
+// legend, per-region hover tooltip, keyboard focus, and a table twin. The map
+// dataset is prebuilt SVG paths (see scripts/build-maps.mjs); items match a
+// region by its key (ISO code) or, failing that, by name.
 
-import world from '../data/world.json';
+import worldJson from '../data/world.json';
+import usStatesJson from '../data/us-states.json';
 import { formatInt, formatShare } from '../format';
 import type { BarItem } from './barlist';
 import { clear, h, svg } from './dom';
 import { hideTooltip, positionTooltip, showTooltip } from './tooltip';
 
-interface WorldData {
+export interface MapData {
   viewBox: string;
-  countries: Record<string, { name: string; d: string }>;
+  regions: Record<string, { name: string; d: string }>;
 }
-const WORLD = world as WorldData;
+export const WORLD_MAP = worldJson as MapData;
+export const US_STATES_MAP = usStatesJson as MapData;
 const BINS = 5;
+
+export interface ChoroplethOptions {
+  title: string;
+  map: MapData;
+  /** Header for the name column in the table view. */
+  nameHeader: string;
+  emptyText: string;
+  /** Accessible description of the map. */
+  ariaLabel: string;
+}
 
 export interface ChoroplethData {
   items: BarItem[];
@@ -48,14 +62,16 @@ export class Choropleth {
   private readonly toggle: HTMLButtonElement;
   private data: ChoroplethData | null = null;
   private showTable = false;
+  private readonly byName = new Map<string, string>();
 
-  constructor(title: string) {
+  constructor(private readonly opts: ChoroplethOptions) {
+    for (const [key, r] of Object.entries(opts.map.regions)) this.byName.set(r.name.toLowerCase(), key);
     this.mapWrap = h('div', { class: 'choro data' });
     this.legend = h('div', { class: 'choro-legend data' });
     this.tableWrap = h('div', { class: 'table-wrap data' });
     this.tableWrap.hidden = true;
     this.toggle = h('button', { class: 'btn small ghost', type: 'button', aria: { pressed: 'false' }, onClick: () => this.setTable(!this.showTable) }, 'Table');
-    this.el = h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, title), this.toggle), this.legend, this.mapWrap, this.tableWrap);
+    this.el = h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, opts.title), this.toggle), this.legend, this.mapWrap, this.tableWrap);
   }
 
   setTable(on: boolean): void {
@@ -84,24 +100,29 @@ export class Choropleth {
     clear(this.mapWrap);
     clear(this.legend);
     const d = this.data;
-    const byIso = new Map<string, BarItem>();
-    if (d) for (const it of d.items) byIso.set(it.id.toUpperCase(), it);
+    const byKey = new Map<string, BarItem>();
+    if (d) {
+      for (const it of d.items) {
+        const key = this.opts.map.regions[it.id.toUpperCase()] ? it.id.toUpperCase() : this.byName.get(it.name.toLowerCase());
+        if (key) byKey.set(key, it);
+      }
+    }
     const thresholds = binThresholds(d ? d.items.map((i) => i.count) : []);
     const total = d?.total ?? 0;
 
-    const root = svg('svg', { viewBox: WORLD.viewBox, role: 'img' });
-    root.setAttribute('aria-label', 'World map of visitors by country');
+    const root = svg('svg', { viewBox: this.opts.map.viewBox, role: 'img' });
+    root.setAttribute('aria-label', this.opts.ariaLabel);
     const binMax = new Map<number, number>();
     const binMin = new Map<number, number>();
-    for (const [iso, c] of Object.entries(WORLD.countries)) {
-      const item = byIso.get(iso);
+    for (const [iso, c] of Object.entries(this.opts.map.regions)) {
+      const item = byKey.get(iso);
       const count = item?.count ?? 0;
       const bin = binFor(count, thresholds);
       if (count > 0) {
         binMax.set(bin, Math.max(binMax.get(bin) ?? 0, count));
         binMin.set(bin, Math.min(binMin.get(bin) ?? Infinity, count));
       }
-      const path = svg('path', { class: `country${bin ? ` b${bin}` : ''}`, d: c.d, 'data-iso': iso });
+      const path = svg('path', { class: `country${bin ? ` b${bin}` : ''}`, d: c.d, 'data-key': iso });
       if (count > 0) path.setAttribute('tabindex', '0');
       const name = item?.name ?? c.name;
       const rows = count > 0 ? [{ label: 'Visitors', value: formatInt(count) }, { label: 'Share', value: formatShare(count, total) }] : [{ label: 'Visitors', value: '0' }];
@@ -126,7 +147,7 @@ export class Choropleth {
       const label = lo === hi ? formatInt(lo) : `${formatInt(lo)}–${formatInt(hi)}`;
       this.legend.appendChild(h('span', {}, h('span', { class: `sw b${b}` }), label));
     }
-    if (!d || d.items.length === 0) this.mapWrap.appendChild(h('div', { class: 'empty' }, 'No location data in this range.'));
+    if (!d || d.items.length === 0) this.mapWrap.appendChild(h('div', { class: 'empty' }, this.opts.emptyText));
   }
 
   private renderTable(): void {
@@ -137,7 +158,7 @@ export class Choropleth {
       h(
         'table',
         { class: 'data-table' },
-        h('thead', {}, h('tr', {}, h('th', {}, 'Country'), h('th', { class: 'num' }, 'Visitors'), h('th', { class: 'num' }, 'Share'))),
+        h('thead', {}, h('tr', {}, h('th', {}, this.opts.nameHeader), h('th', { class: 'num' }, 'Visitors'), h('th', { class: 'num' }, 'Share'))),
         h(
           'tbody',
           {},

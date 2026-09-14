@@ -266,9 +266,6 @@ select {
   margin-left: 6px;
   font-weight: 400;
 }
-.grid-1 {
-  margin-top: 12px;
-}
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

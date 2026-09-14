@@ -6,7 +6,7 @@ import { eachDay, hourIn, hourLabel, isHourly, previousPeriod, rangeLabel, short
 import { siteDisplayName, storage, type ColorScheme, type ViewState } from '../state';
 import { applyScheme, nextScheme, schemeLabel } from '../theme';
 import { BarList, statsToItems, type BarItem } from './barlist';
-import { Choropleth } from './choropleth';
+import { Choropleth, US_STATES_MAP, WORLD_MAP } from './choropleth';
 import { clear, h } from './dom';
 import { FilterRow } from './filters';
 import { KpiRow } from './kpi';
@@ -37,6 +37,7 @@ export class Overview {
   private readonly kpis: KpiRow;
   private readonly chart: TimeSeriesChart;
   private readonly map: Choropleth;
+  private readonly usMap: Choropleth;
   private readonly panels: Record<string, BarList>;
   private readonly banner: HTMLElement;
   private readonly schemeBtn: HTMLButtonElement;
@@ -80,7 +81,20 @@ export class Overview {
     this.kpis.setVisible('goal', !!opts.state.goal);
 
     this.chart = new TimeSeriesChart('Visitors');
-    this.map = new Choropleth('Visitors by country');
+    this.map = new Choropleth({
+      title: 'Visitors by country',
+      map: WORLD_MAP,
+      nameHeader: 'Country',
+      emptyText: 'No location data in this range.',
+      ariaLabel: 'World map of visitors by country',
+    });
+    this.usMap = new Choropleth({
+      title: 'Visitors by US state',
+      map: US_STATES_MAP,
+      nameHeader: 'State',
+      emptyText: 'No visitors from the United States in this range.',
+      ariaLabel: 'Map of the United States showing visitors by state',
+    });
 
     const drillStat = (page: StatsPage) => async (item: BarItem, signal: AbortSignal) => {
       const res = await this.opts.client.statDetail(page, item.id, this.state.range, { limit: 15 }, signal);
@@ -113,7 +127,7 @@ export class Overview {
       {},
       this.kpis.el,
       this.chart.el,
-      h('div', { class: 'grid-1' }, this.map.el),
+      h('div', { class: 'grid-2' }, this.map.el, this.usMap.el),
       h(
         'div',
         { class: 'grid-2' },
@@ -284,10 +298,24 @@ export class Overview {
           const shown = nonzero.slice(0, 20);
           this.panels['locations']!.update({ items: statsToItems(shown), total, more: nonzero.length > shown.length });
           this.map.update({ items: statsToItems(nonzero.filter((s) => s.id && !s.name.startsWith('('))), total });
+          // US states: one more request, only when the US appears at all.
+          const us = nonzero.find((s) => s.id === 'US');
+          if (!us) {
+            this.usMap.update({ items: [], total });
+            return;
+          }
+          jobs.push(
+            guard(
+              client.statDetail('locations', 'US', range, { limit: 100 }, signal),
+              (res) => this.usMap.update({ items: statsToItems(res.stats.filter((s) => s.count > 0)), total: us.count }),
+              (e) => this.usMap.setError(msg(e)),
+            ),
+          );
         },
         (e) => {
           this.panels['locations']!.setError(msg(e));
           this.map.setError(msg(e));
+          this.usMap.setError(msg(e));
         },
       ),
     );

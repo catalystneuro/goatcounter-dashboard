@@ -6,7 +6,7 @@ Use it at **https://catalystneuro.github.io/goatcounter-dashboard/** with your o
 
 ## What it shows
 
-One date range scopes the whole page: today, the last 7, 30, or 90 days, the last year, or a custom range. Below the filter row are three headline numbers (visitors, visitors to a goal path of your choice, and countries reached), a daily visitors chart with a crosshair tooltip (hourly for one- or two-day ranges), a world map shaded by visitors per country, and panels for top pages, referrers, campaigns, countries, browsers, systems, and screen sizes. Each panel has a table view. Clicking a page shows its referrers; clicking a country, browser, or system shows its regions or versions. Turning on "Compare to previous period" overlays the previous period on the chart and adds deltas to the headline numbers.
+One date range scopes the whole page: today, the last 7, 30, or 90 days, the last year, or a custom range. Below the filter row are three headline numbers (visitors, visitors to a goal path of your choice, and countries reached), a daily visitors chart with a crosshair tooltip (hourly for one- or two-day ranges), a world map shaded by visitors per country, a map of US states shaded the same way, and panels for top pages, referrers, campaigns, countries, browsers, systems, and screen sizes. Each panel has a table view. Clicking a page shows its referrers; clicking a country, browser, or system shows its regions or versions. Turning on "Compare to previous period" overlays the previous period on the chart and adds deltas to the headline numbers.
 
 The URL carries the site, date range, goal path, and theme, so a link you share opens the same view for anyone who has their own token for that site. The token itself is not part of the shareable URL.
 
@@ -26,9 +26,9 @@ GoatCounter allows four API requests per second per token, and the browser's COR
 
 Two presets ship: a neutral blue and a pine-and-gold preset. Pick one in Settings. Light and dark modes each have their own validated palette; the header button cycles between following the system, light, and dark. To add a preset, add a block to `src/styles/tokens.css` for both light and dark, and run the palette validator from the dataviz guidelines on the series colours against your surfaces.
 
-## World map data
+## Map data
 
-The choropleth uses Natural Earth 110m country outlines (public domain), projected with Equal Earth into SVG paths at build time by `scripts/build-world.mjs` and committed as `src/data/world.json`, so the app makes no map requests at runtime. Countries are matched by ISO 3166-1 alpha-2 code, which is what GoatCounter reports.
+The choropleths use Natural Earth 110m outlines (public domain), projected at build time by `scripts/build-maps.mjs` into SVG paths and committed under `src/data/`, so the app makes no map requests at runtime. Countries use the Equal Earth projection and are matched by ISO 3166-1 alpha-2 code, which is what GoatCounter reports. US states use the Albers USA layout with Alaska and Hawaii insets and are matched by the region name GoatCounter returns.
 
 ## Development
 
